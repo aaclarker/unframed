@@ -76,6 +76,8 @@
     tvStatusBadge: document.getElementById('tvStatusBadge'),
     tvStatusIndicator: document.getElementById('tvStatusIndicator'),
     tvStatusText: document.getElementById('tvStatusText'),
+    tvPickerSelect: document.getElementById('tvPickerSelect'),
+    discoverTvBtn: document.getElementById('discoverTvBtn'),
     artModeBtn: document.getElementById('artModeBtn'),
     artModeText: document.getElementById('artModeText'),
     slideshowSelect: document.getElementById('slideshowSelect'),
@@ -770,6 +772,7 @@
 
       // Gallery Photos
       state.myPhotos = data.my_photos || data.photos || data.items || [];
+      renderTvPicker(data.discovered_tvs || [], ip);
       renderGallery();
 
     } catch (err) {
@@ -779,6 +782,67 @@
       dom.tvStatusText.textContent = `${ip} · Offline / Unreachable`;
       dom.artModeBtn.dataset.state = 'unknown';
       dom.artModeText.textContent = '--';
+    }
+  }
+
+  function renderTvPicker(tvs, selectedIp) {
+    if (!dom.tvPickerSelect) return;
+    if (!Array.isArray(tvs) || tvs.length <= 1) {
+      dom.tvPickerSelect.style.display = 'none';
+      return;
+    }
+    dom.tvPickerSelect.innerHTML = '';
+    tvs.forEach((item) => {
+      const opt = document.createElement('option');
+      opt.value = item.ip;
+      opt.textContent = `${item.ip} (${item.model || item.name || 'The Frame'})`;
+      if (item.ip === selectedIp) opt.selected = true;
+      dom.tvPickerSelect.appendChild(opt);
+    });
+    dom.tvPickerSelect.style.display = 'inline-block';
+  }
+
+  async function handleDiscoverTvs() {
+    if (dom.discoverTvBtn) dom.discoverTvBtn.disabled = true;
+    dom.tvStatusText.textContent = 'Scanning LAN for Frame TVs…';
+    showToast('Scanning local network for Samsung The Frame TVs…', 'info', 2500);
+    try {
+      const res = await fetch('/api/discover', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const found = data.tvs || [];
+      renderTvPicker(found, data.selected_ip);
+      if (found.length > 0) {
+        showToast(
+          `Found ${found.length} Frame TV${found.length === 1 ? '' : 's'} on LAN (${found.map((t) => t.ip).join(', ')})`,
+          'success'
+        );
+        await fetchTvStatus();
+      } else {
+        showToast('No powered-on Samsung The Frame TVs responded on LAN.', 'error', 4000);
+        await fetchTvStatus();
+      }
+    } catch (err) {
+      showToast(`LAN scan failed: ${err.message}`, 'error');
+    } finally {
+      if (dom.discoverTvBtn) dom.discoverTvBtn.disabled = false;
+    }
+  }
+
+  async function handleSelectTv(ip) {
+    if (!ip) return;
+    showToast(`Switching to Frame TV at ${ip}…`, 'info', 2000);
+    try {
+      const res = await fetch('/api/tv/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchTvStatus();
+      showToast(`Connected to ${ip}`, 'success');
+    } catch (err) {
+      showToast(`Failed to switch TV: ${err.message}`, 'error');
     }
   }
 
@@ -994,6 +1058,13 @@
       dom.slideshowShuffleBtn.textContent = `🔀 Shuffle: ${next ? 'ON' : 'Off'}`;
       updateSlideshow();
     });
+
+    if (dom.discoverTvBtn) {
+      dom.discoverTvBtn.addEventListener('click', handleDiscoverTvs);
+    }
+    if (dom.tvPickerSelect) {
+      dom.tvPickerSelect.addEventListener('change', (e) => handleSelectTv(e.target.value));
+    }
 
     dom.refreshStatusBtn.addEventListener('click', async () => {
       showToast('Syncing with The Frame...', 'info', 1500);

@@ -67,6 +67,10 @@ class SlideshowRequest(BaseModel):
     category_id: str = "MY-C0002"
 
 
+class SelectTVRequest(BaseModel):
+    ip: str
+
+
 # -----------------------------------------------------------------------------
 # Web & Health Endpoints
 # -----------------------------------------------------------------------------
@@ -111,10 +115,39 @@ def get_status() -> dict[str, Any]:
             "current_artwork": None,
             "slideshow": None,
             "my_photos": [],
+            "discovered_tvs": tv.discovered_tvs,
             "matte_types": tv.MATTE_TYPES,
             "matte_colors": tv.MATTE_COLORS,
             "photo_filters": tv.PHOTO_FILTERS,
         }
+
+
+@app.get("/api/discover")
+@app.post("/api/discover")
+def discover_tvs(request: Request) -> dict[str, Any]:
+    """Auto-detect Samsung The Frame TVs on the LAN via SSDP and port-8001 scan."""
+    extra_prefixes: list[str] = []
+    xff = request.headers.get("x-forwarded-for", "")
+    for candidate in [xff.split(",")[0].strip(), request.client.host if request.client else ""]:
+        if candidate and candidate.startswith(("192.168.", "10.")):
+            extra_prefixes.append(candidate)
+    tvs = tv.discover_frame_tvs(extra_prefixes=extra_prefixes)
+    return {
+        "ok": True,
+        "selected_ip": tv.host,
+        "model": tv.get_model_name(),
+        "tvs": tvs,
+    }
+
+
+@app.post("/api/tv/select")
+def select_tv_endpoint(payload: SelectTVRequest) -> dict[str, Any]:
+    """Switch active Frame TV to the specified LAN IP address."""
+    try:
+        return tv.select_tv(payload.ip)
+    except Exception as exc:
+        logger.error("Select TV failed: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/thumbnail/{content_id}")

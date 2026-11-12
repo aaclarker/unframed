@@ -34,7 +34,8 @@
 
       <div class="tv-status-badge" id="tvStatusBadge">
         <span class="status-indicator online" id="tvStatusIndicator"></span>
-        <span class="tv-status-text mono" id="tvStatusText">Connecting to The Frame…</span>
+        <span class="tv-status-text mono" id="tvStatusText">Auto-detecting The Frame on LAN…</span>
+        <select id="tvPickerSelect" class="form-select mono" title="Switch Frame TV" style="display: none; margin-left: 0.5rem;"></select>
       </div>
     </div>
 
@@ -68,6 +69,10 @@
 
       <!-- General Actions -->
       <div class="ctrl-group-actions">
+        <button type="button" class="btn btn-icon" id="discoverTvBtn" title="Auto-detect Samsung The Frame TVs on LAN">
+          <span class="icon">⌕</span>
+          <span class="btn-text">Scan LAN</span>
+        </button>
         <button type="button" class="btn btn-icon" id="refreshStatusBtn" title="Refresh TV Status &amp; Gallery">
           <span class="icon">⟳</span>
           <span class="btn-text">Sync</span>

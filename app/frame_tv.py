@@ -8,12 +8,14 @@ Samsung cloud apps or SmartThings.
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import contextlib
 from datetime import datetime
 import json
 import logging
 import os
 import random
+import re
 import socket
 import ssl
 import struct
@@ -26,6 +28,7 @@ import uuid
 logger = logging.getLogger("unframed.frame_tv")
 
 FRAME_TV_IP = os.environ.get("FRAME_TV_IP", "").strip()
+FRAME_TV_SUBNET = os.environ.get("FRAME_TV_SUBNET", "").strip()
 FRAME_TV_PORT = int(os.environ.get("FRAME_TV_PORT", "8002"))
 FRAME_TV_WS_NAME = os.environ.get("FRAME_TV_WS_NAME", "Unframed").strip()
 FRAME_TV_TOKEN = os.environ.get("FRAME_TV_TOKEN", "").strip()
@@ -33,6 +36,9 @@ FRAME_TV_MODEL = os.environ.get("FRAME_TV_MODEL", "").strip()
 THUMB_CACHE_DIR = os.environ.get("THUMB_CACHE_DIR", "/tmp/unframed-thumbs")
 FRAME_TV_TOKEN_FILE = os.environ.get(
     "FRAME_TV_TOKEN_FILE", os.path.join(THUMB_CACHE_DIR, ".tv_token")
+)
+FRAME_TV_STATE_FILE = os.environ.get(
+    "FRAME_TV_STATE_FILE", os.path.join(THUMB_CACHE_DIR, ".tv_state.json")
 )
 
 
@@ -102,18 +108,64 @@ class FrameTVClient:
         token: str = FRAME_TV_TOKEN,
         thumb_cache_dir: str = THUMB_CACHE_DIR,
         token_file: str = FRAME_TV_TOKEN_FILE,
+        state_file: str = FRAME_TV_STATE_FILE,
         timeout: float = 15.0,
     ) -> None:
+        self._env_host = host
+        self._env_token = token
         self.host = host
         self.port = port
         self.ws_name = _encode_ws_name(ws_name)
         self.thumb_cache_dir = thumb_cache_dir
         self.token_file = token_file
+        self.state_file = state_file
         self.timeout = timeout
         self._lock = threading.Lock()
         self._discovered_model: str | None = FRAME_TV_MODEL or None
+        self.discovered_tvs: list[dict[str, Any]] = []
+        self._tokens_by_ip: dict[str, str] = {}
         os.makedirs(self.thumb_cache_dir, exist_ok=True)
-        self.token = token or self._load_persisted_token()
+        self._load_state()
+        self.token = (
+            token
+            or (self._tokens_by_ip.get(self.host, "") if self.host else "")
+            or self._load_persisted_token()
+        )
+
+    def _load_state(self) -> None:
+        if not self.state_file or not os.path.isfile(self.state_file):
+            return
+        try:
+            with open(self.state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                if not self.host and data.get("selected_ip"):
+                    self.host = str(data["selected_ip"]).strip()
+                if isinstance(data.get("discovered_tvs"), list):
+                    self.discovered_tvs = data["discovered_tvs"]
+                if isinstance(data.get("tokens_by_ip"), dict):
+                    self._tokens_by_ip = {
+                        str(k): str(v) for k, v in data["tokens_by_ip"].items() if v
+                    }
+        except Exception as exc:
+            logger.warning("Could not load TV state from %s: %s", self.state_file, exc)
+
+    def _save_state(self) -> None:
+        if not self.state_file:
+            return
+        try:
+            parent = os.path.dirname(self.state_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            payload = {
+                "selected_ip": self.host,
+                "discovered_tvs": self.discovered_tvs,
+                "tokens_by_ip": self._tokens_by_ip,
+            }
+            with open(self.state_file, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+        except Exception as exc:
+            logger.warning("Could not save TV state to %s: %s", self.state_file, exc)
 
     def _load_persisted_token(self) -> str:
         if self.token_file and os.path.isfile(self.token_file):
@@ -125,16 +177,216 @@ class FrameTVClient:
         return ""
 
     def _save_persisted_token(self, token: str) -> None:
-        if not token or not self.token_file:
+        if not token:
+            return
+        clean = token.strip()
+        if self.host:
+            self._tokens_by_ip[self.host] = clean
+            self._save_state()
+        if not self.token_file:
             return
         try:
             parent = os.path.dirname(self.token_file)
             if parent:
                 os.makedirs(parent, exist_ok=True)
             with open(self.token_file, "w", encoding="utf-8") as f:
-                f.write(token.strip())
+                f.write(clean)
         except OSError as exc:
             logger.warning("Could not persist TV token to %s: %s", self.token_file, exc)
+
+    # -------------------------------------------------------------------------
+    # LAN Auto-Discovery (SSDP + Concurrent /24 Port 8001 Probe)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _probe_tv_http(ip: str, tcp_timeout: float = 0.75, http_timeout: float = 1.5) -> dict[str, Any] | None:
+        """Check if `ip` has port 8001 open and advertises FrameTVSupport via /api/v2/."""
+        try:
+            with socket.create_connection((ip, 8001), timeout=tcp_timeout):
+                pass
+            url = f"http://{ip}:8001/api/v2/"
+            with urllib.request.urlopen(url, timeout=http_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            if not isinstance(data, dict):
+                return None
+            dev = data.get("device") if isinstance(data.get("device"), dict) else {}
+            is_support_raw = str(data.get("isSupport") or "")
+            is_frame = (
+                str(dev.get("FrameTVSupport", "")).lower() == "true"
+                or '"FrameTVSupport":"true"' in is_support_raw
+                or "FTV" in str(dev.get("model", ""))
+                or "LS03" in str(dev.get("modelName", ""))
+            )
+            if not is_frame:
+                return None
+            return {
+                "ip": ip,
+                "model": str(dev.get("modelName") or data.get("name") or "The Frame"),
+                "name": str(dev.get("name") or data.get("name") or "Samsung The Frame"),
+                "resolution": str(dev.get("resolution") or "3840x2160"),
+                "os": str(dev.get("OS") or "Tizen"),
+                "mac": str(dev.get("wifiMac") or ""),
+                "power_state": str(dev.get("PowerState") or "on"),
+                "id": str(dev.get("duid") or data.get("id") or ""),
+            }
+        except Exception:
+            return None
+
+    def _ssdp_discover_ips(self, timeout: float = 0.5) -> list[str]:
+        """Send SSDP M-SEARCH multicast queries for Samsung TVs and return responding IPs."""
+        ips: list[str] = []
+        search_targets = [
+            "urn:samsung.com:device:RemoteControlReceiver:1",
+            "urn:dial-multiscreen-org:service:dial:1",
+        ]
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        try:
+            sock.settimeout(timeout)
+            for st in search_targets:
+                msg = (
+                    "M-SEARCH * HTTP/1.1\r\n"
+                    "HOST: 239.255.255.250:1900\r\n"
+                    'MAN: "ssdp:discover"\r\n'
+                    "MX: 1\r\n"
+                    f"ST: {st}\r\n\r\n"
+                ).encode("ascii")
+                with contextlib.suppress(Exception):
+                    sock.sendto(msg, ("239.255.255.250", 1900))
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                try:
+                    _, addr = sock.recvfrom(2048)
+                    ip = addr[0]
+                    if ip and ip not in ips:
+                        ips.append(ip)
+                except socket.timeout:
+                    break
+                except Exception:
+                    break
+        finally:
+            with contextlib.suppress(Exception):
+                sock.close()
+        return ips
+
+    def _detect_lan_prefixes(self, extra_prefixes: list[str] | None = None) -> list[str]:
+        """Determine candidate /24 LAN prefixes (e.g. '192.168.1') to scan."""
+        prefixes: list[str] = []
+
+        def add_ip_or_prefix(val: str) -> None:
+            val = val.strip().split("/")[0]
+            parts = val.split(".")
+            if len(parts) >= 3 and all(p.isdigit() for p in parts[:3]):
+                p = ".".join(parts[:3])
+                # Skip loopback and Docker default 172.17-31 bridges unless explicitly provided
+                if p.startswith("127."):
+                    return
+                if p not in prefixes:
+                    prefixes.append(p)
+
+        if FRAME_TV_SUBNET:
+            add_ip_or_prefix(FRAME_TV_SUBNET)
+        if self.host:
+            add_ip_or_prefix(self.host)
+        for ep in extra_prefixes or []:
+            add_ip_or_prefix(ep)
+
+        # Inspect /etc/resolv.conf (Docker writes host upstream DNS in '# ExtServers: [host(192.168.x.x)]')
+        try:
+            with open("/etc/resolv.conf", "r", encoding="utf-8") as f:
+                content = f.read()
+            for ip in re.findall(
+                r"\b(?:192\.168\.\d+|10\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+)\.\d+\b",
+                content,
+            ):
+                if not ip.startswith("172.17.") and not ip.startswith("172.18."):
+                    add_ip_or_prefix(ip)
+        except Exception:
+            pass
+
+        # Outbound UDP socket route check
+        for probe_target in ("192.168.1.1", "10.0.0.1", "1.1.1.1"):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect((probe_target, 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+                if local_ip.startswith(("192.168.", "10.")):
+                    add_ip_or_prefix(local_ip)
+            except Exception:
+                pass
+
+        # Fallback to most common home LAN subnets if none found yet
+        if not prefixes:
+            for common in ("192.168.1", "192.168.0", "192.168.86", "10.0.0"):
+                add_ip_or_prefix(common)
+
+        return prefixes
+
+    def discover_frame_tvs(self, extra_prefixes: list[str] | None = None) -> list[dict[str, Any]]:
+        """Auto-detect Samsung The Frame TVs on the LAN via SSDP + concurrent /24 port-8001 probe."""
+        found_by_ip: dict[str, dict[str, Any]] = {}
+
+        # 1. Fast SSDP multicast check
+        ssdp_ips = self._ssdp_discover_ips(timeout=0.45)
+        for ip in ssdp_ips:
+            info = self._probe_tv_http(ip)
+            if info:
+                found_by_ip[ip] = info
+
+        # 2. Concurrent /24 port-8001 scan across detected LAN prefixes
+        prefixes = self._detect_lan_prefixes(extra_prefixes=extra_prefixes)
+        candidate_ips: list[str] = []
+        if self.host and self.host not in found_by_ip:
+            candidate_ips.append(self.host)
+        for prefix in prefixes:
+            for host_num in range(1, 255):
+                ip = f"{prefix}.{host_num}"
+                if ip not in found_by_ip and ip not in candidate_ips:
+                    candidate_ips.append(ip)
+
+        if candidate_ips:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=84) as executor:
+                for info in executor.map(self._probe_tv_http, candidate_ips):
+                    if info and info["ip"] not in found_by_ip:
+                        found_by_ip[info["ip"]] = info
+
+        discovered = list(found_by_ip.values())
+        self.discovered_tvs = discovered
+
+        # Auto-select the first discovered TV if no host is configured yet
+        if not self.host and discovered:
+            self.host = discovered[0]["ip"]
+            self._discovered_model = discovered[0].get("model") or self._discovered_model
+            if not self._env_token:
+                self.token = self._tokens_by_ip.get(self.host) or self._load_persisted_token()
+            logger.info("Auto-detected Samsung The Frame TV at %s (%s)", self.host, self._discovered_model)
+
+        self._save_state()
+        return discovered
+
+    def select_tv(self, ip: str) -> dict[str, Any]:
+        """Switch active Frame TV to `ip`, verifying via :8001/api/v2/ if reachable."""
+        clean_ip = ip.strip()
+        if not clean_ip:
+            raise ValueError("TV IP address cannot be empty")
+        info = self._probe_tv_http(clean_ip, tcp_timeout=1.5, http_timeout=2.5)
+        self.host = clean_ip
+        if info:
+            self._discovered_model = info.get("model") or None
+            existing_ips = {t.get("ip") for t in self.discovered_tvs}
+            if clean_ip not in existing_ips:
+                self.discovered_tvs.append(info)
+        else:
+            self._discovered_model = FRAME_TV_MODEL or None
+        if not self._env_token:
+            self.token = self._tokens_by_ip.get(clean_ip) or self._load_persisted_token()
+        self._save_state()
+        return {
+            "ok": True,
+            "tv_ip": self.host,
+            "model": self.get_model_name(),
+            "discovered_tvs": self.discovered_tvs,
+        }
 
     def get_model_name(self) -> str:
         """Return the TV model name (auto-discovered via :8001/api/v2/ or fallback)."""
@@ -142,20 +394,11 @@ class FrameTVClient:
             return self._discovered_model
         if not self.host:
             return "The Frame"
-        try:
-            url = f"http://{self.host}:8001/api/v2/"
-            with urllib.request.urlopen(url, timeout=2.5) as resp:
-                info = json.loads(resp.read().decode("utf-8", errors="replace"))
-                device = info.get("device") if isinstance(info, dict) else None
-                model = (
-                    (device.get("modelName") if isinstance(device, dict) else None)
-                    or info.get("name")
-                    or "The Frame"
-                )
-                self._discovered_model = str(model)
-                return self._discovered_model
-        except Exception:
-            return "The Frame"
+        info = self._probe_tv_http(self.host, tcp_timeout=1.0, http_timeout=2.0)
+        if info and info.get("model"):
+            self._discovered_model = str(info["model"])
+            return self._discovered_model
+        return "The Frame"
 
     # -------------------------------------------------------------------------
     # WebSocket & TLS Helpers (RFC 6455 Client)
@@ -235,8 +478,10 @@ class FrameTVClient:
 
     def _ws_open(self) -> socket.socket:
         if not self.host:
+            self.discover_frame_tvs()
+        if not self.host:
             raise RuntimeError(
-                "FRAME_TV_IP is not configured. Set FRAME_TV_IP in your .env file."
+                "No Samsung The Frame TV detected on LAN. Click 'Scan LAN' or set FRAME_TV_IP in .env."
             )
         ctx = self._create_ssl_context()
         raw_sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
@@ -392,12 +637,34 @@ class FrameTVClient:
     def get_status(self) -> dict[str, Any]:
         """Fetch current TV Art Mode status, artwork, and uploaded photo list."""
         with self._lock:
-            with self._connect() as ws:
-                api_ver = self._request(ws, "api_version")
-                artmode_resp = self._request(ws, "get_artmode_status")
-                current_artwork = self._request(ws, "get_current_artwork")
-                slideshow = self._request(ws, "get_slideshow_status")
-                content_resp = self._request(ws, "get_content_list")
+            if not self.host:
+                self.discover_frame_tvs()
+            try:
+                with self._connect() as ws:
+                    api_ver = self._request(ws, "api_version")
+                    artmode_resp = self._request(ws, "get_artmode_status")
+                    current_artwork = self._request(ws, "get_current_artwork")
+                    slideshow = self._request(ws, "get_slideshow_status")
+                    content_resp = self._request(ws, "get_content_list")
+            except Exception:
+                # If IP was auto-discovered (not pinned by env), re-scan LAN once in case DHCP IP changed
+                if not self._env_host:
+                    old_host = self.host
+                    self.host = ""
+                    self.discover_frame_tvs()
+                    if self.host and self.host != old_host:
+                        with self._connect() as ws:
+                            api_ver = self._request(ws, "api_version")
+                            artmode_resp = self._request(ws, "get_artmode_status")
+                            current_artwork = self._request(ws, "get_current_artwork")
+                            slideshow = self._request(ws, "get_slideshow_status")
+                            content_resp = self._request(ws, "get_content_list")
+                    else:
+                        if old_host and not self.host:
+                            self.host = old_host
+                        raise
+                else:
+                    raise
 
         version = api_ver.get("version") or api_ver.get("api_version") or "5.0.1.0"
         artmode = artmode_resp.get("value") or artmode_resp.get("status") or "unknown"
@@ -426,15 +693,24 @@ class FrameTVClient:
                 seen_ids.add(cid)
                 my_photos.append({**item, "category_id": "MY-C0002"})
 
+        model_name = self.get_model_name()
+        if self.host and not any(t.get("ip") == self.host for t in self.discovered_tvs):
+            self.discovered_tvs.append({
+                "ip": self.host,
+                "model": model_name,
+                "name": "The Frame",
+            })
+
         return {
             "online": True,
             "tv_ip": self.host,
-            "model": self.get_model_name(),
+            "model": model_name,
             "api_version": version,
             "artmode": artmode,
             "current_artwork": current_artwork,
             "slideshow": slideshow,
             "my_photos": my_photos,
+            "discovered_tvs": self.discovered_tvs,
             "matte_types": self.MATTE_TYPES,
             "matte_colors": self.MATTE_COLORS,
             "photo_filters": self.PHOTO_FILTERS,
