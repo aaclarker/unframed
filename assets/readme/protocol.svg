@@ -4,58 +4,58 @@
   <title id="title">How Unframed Talks Directly to Samsung The Frame Over LAN</title>
   <desc id="desc">Three-step local LAN architecture: 1. SSDP and port 8001 auto-discovery, 2. Short-lived TLS WebSocket on port 8002 to com.samsung.art-app, 3. Ephemeral D2D TLS binary socket for 4K JPEG upload and thumbnail transfer.</desc>
 
-  <rect width="1200" height="330" rx="14" fill="#111916"/>
-  <rect x="1" y="1" width="1198" height="328" rx="13" fill="none" stroke="#2b3e35" stroke-width="2"/>
+  <rect width="1200" height="330" rx="16" fill="#232136"/>
+  <rect x="1" y="1" width="1198" height="328" rx="15" fill="none" stroke="#393552" stroke-width="2"/>
 
   <!-- Section Eyebrow & Heading -->
-  <text x="48" y="44" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" font-weight="700" fill="#dcff4f" letter-spacing="1.2">LOCAL PROTOCOL · ZERO CLOUD DEPENDENCY</text>
-  <text x="48" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="600" fill="#f3f4ee">Three-Stage On-Device Art Mode Pipeline</text>
+  <text x="48" y="44" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" font-weight="700" fill="#ea9a97" letter-spacing="1.2">LOCAL PROTOCOL · ZERO CLOUD DEPENDENCY</text>
+  <text x="48" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="600" fill="#e0def4">Three-Stage On-Device Art Mode Pipeline</text>
 
   <!-- STAGE 1: Auto-Discovery -->
   <g transform="translate(48 104)">
-    <rect x="0" y="0" width="344" height="186" fill="#17231e" stroke="#31473c" stroke-width="1.5"/>
-    <rect x="0" y="0" width="344" height="6" fill="#dcff4f"/>
-    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#dcff4f">01 · LAN AUTO-DISCOVERY</text>
-    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#f3f4ee">SSDP + /24 Port-8001 Scan</text>
-    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">Queries :8001/api/v2/ across LAN</text>
-    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">for FrameTVSupport == "true".</text>
-    <rect x="22" y="140" width="300" height="30" fill="#101815" stroke="#283a31" stroke-width="1"/>
-    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#d0ddd5">GET http://&lt;tv&gt;:8001/api/v2/</text>
+    <rect x="0" y="0" width="344" height="186" rx="12" fill="#2a273f" stroke="#393552" stroke-width="1.5"/>
+    <rect x="0" y="0" width="344" height="6" rx="3" fill="#ea9a97"/>
+    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#ea9a97">01 · LAN AUTO-DISCOVERY</text>
+    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#e0def4">SSDP + /24 Port-8001 Scan</text>
+    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">Queries :8001/api/v2/ across LAN</text>
+    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">for FrameTVSupport == "true".</text>
+    <rect x="22" y="140" width="300" height="30" rx="6" fill="#232136" stroke="#393552" stroke-width="1"/>
+    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#e0def4">GET http://&lt;tv&gt;:8001/api/v2/</text>
   </g>
 
   <!-- Arrow 1 -> 2 -->
   <g transform="translate(396 186)">
-    <line x1="0" y1="10" x2="26" y2="10" stroke="#dcff4f" stroke-width="2"/>
-    <polygon points="24,4 34,10 24,16" fill="#dcff4f"/>
+    <line x1="0" y1="10" x2="26" y2="10" stroke="#ea9a97" stroke-width="2"/>
+    <polygon points="24,4 34,10 24,16" fill="#ea9a97"/>
   </g>
 
   <!-- STAGE 2: WebSocket Control Channel -->
   <g transform="translate(434 104)">
-    <rect x="0" y="0" width="344" height="186" fill="#17231e" stroke="#31473c" stroke-width="1.5"/>
-    <rect x="0" y="0" width="344" height="6" fill="#5ec28f"/>
-    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#5ec28f">02 · ART APP WEBSOCKET</text>
-    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#f3f4ee">Short-Lived TLS Session</text>
-    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">Opens on demand, pairs token once,</text>
-    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">negotiates mattes &amp; D2D secKey.</text>
-    <rect x="22" y="140" width="300" height="30" fill="#101815" stroke="#283a31" stroke-width="1"/>
-    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#d0ddd5">wss://&lt;tv&gt;:8002/.../art-app</text>
+    <rect x="0" y="0" width="344" height="186" rx="12" fill="#2a273f" stroke="#393552" stroke-width="1.5"/>
+    <rect x="0" y="0" width="344" height="6" rx="3" fill="#9ccfd8"/>
+    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#9ccfd8">02 · ART APP WEBSOCKET</text>
+    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#e0def4">Short-Lived TLS Session</text>
+    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">Opens on demand, pairs token once,</text>
+    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">negotiates mattes &amp; D2D secKey.</text>
+    <rect x="22" y="140" width="300" height="30" rx="6" fill="#232136" stroke="#393552" stroke-width="1"/>
+    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#e0def4">wss://&lt;tv&gt;:8002/.../art-app</text>
   </g>
 
   <!-- Arrow 2 -> 3 -->
   <g transform="translate(782 186)">
-    <line x1="0" y1="10" x2="26" y2="10" stroke="#dcff4f" stroke-width="2"/>
-    <polygon points="24,4 34,10 24,16" fill="#dcff4f"/>
+    <line x1="0" y1="10" x2="26" y2="10" stroke="#9ccfd8" stroke-width="2"/>
+    <polygon points="24,4 34,10 24,16" fill="#9ccfd8"/>
   </g>
 
   <!-- STAGE 3: Ephemeral D2D TLS Socket -->
   <g transform="translate(820 104)">
-    <rect x="0" y="0" width="332" height="186" fill="#17231e" stroke="#31473c" stroke-width="1.5"/>
-    <rect x="0" y="0" width="332" height="6" fill="#f0c987"/>
-    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#f0c987">03 · D2D BINARY STREAM</text>
-    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#f3f4ee">4K UHD Direct Transfer</text>
-    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">Streams 3840×2160 JPEG (4:4:4)</text>
-    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#a9bcb0">and caches 384×216 thumbnails.</text>
-    <rect x="22" y="140" width="288" height="30" fill="#101815" stroke="#283a31" stroke-width="1"/>
-    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#d0ddd5">[4B len][JSON hdr][JPEG bytes]</text>
+    <rect x="0" y="0" width="332" height="186" rx="12" fill="#2a273f" stroke="#393552" stroke-width="1.5"/>
+    <rect x="0" y="0" width="332" height="6" rx="3" fill="#f6c177"/>
+    <text x="22" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="700" fill="#f6c177">03 · D2D BINARY STREAM</text>
+    <text x="22" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="600" fill="#e0def4">4K UHD Direct Transfer</text>
+    <text x="22" y="98" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">Streams 3840×2160 JPEG (4:4:4)</text>
+    <text x="22" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" fill="#908caa">and caches 384×216 thumbnails.</text>
+    <rect x="22" y="140" width="288" height="30" rx="6" fill="#232136" stroke="#393552" stroke-width="1"/>
+    <text x="34" y="160" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#e0def4">[4B len][JSON hdr][JPEG bytes]</text>
   </g>
 </svg>

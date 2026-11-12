@@ -203,7 +203,7 @@
 
   function updateThemeButton(isNight) {
     dom.themeIcon.textContent = isNight ? '☾' : '☀';
-    dom.themeLabel.textContent = isNight ? 'Night' : 'Day';
+    dom.themeLabel.textContent = isNight ? 'Moon' : 'Dawn';
   }
 
   // ---- Swatches & Matte Controls Setup ------------------------------------

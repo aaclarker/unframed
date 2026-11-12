@@ -1,11 +1,10 @@
 /* ==========================================================================
-   The Frame · Studio — Custom Stylesheet
-   Amaro Homelab · Verdant Theme Pair (Day + Night)
-   Strict adherence to:
-     - Square corners (border-radius: 0 everywhere)
-     - 1px hairline rules (--vd-rule / --vd-guide)
-     - Flat surfaces (--vd-ground, --vd-deep) with no drop shadows
-     - Acid lime highlight (--vd-acid) with acid-ink text (--vd-acid-ink)
+   Unframed · Studio — Custom Stylesheet
+   Rosé Pine Theme Pair: Rosé Pine Dawn (Light) + Rosé Pine Moon (Dark)
+   Cozy, relaxed gallery & studio aesthetic:
+     - Soft rounded corners (8px–16px)
+     - Warm linen/cream (Dawn) & twilight/velvet (Moon) surfaces
+     - Terracotta / blush rose active pills & Aegean pine primary CTA
      - Bricolage Grotesque (UI), Instrument Serif (Display), Fragment Mono (Specs)
    ========================================================================== */
 
@@ -14,7 +13,6 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  border-radius: 0 !important; /* Strict Verdant Rule */
 }
 
 body {
@@ -27,6 +25,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .mono {
@@ -1176,3 +1175,150 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ---- Rosé Pine Dawn & Moon Component Refinements ----------------------- */
+.masthead {
+  background-color: var(--vd-surface);
+  border-bottom: 1px solid var(--vd-rule);
+  box-shadow: 0 2px 16px rgba(87, 82, 121, 0.04);
+}
+
+.studio-pane {
+  background-color: var(--vd-surface);
+  border: 1px solid var(--vd-rule);
+  border-radius: 16px;
+  box-shadow: var(--rp-shadow);
+  overflow: hidden;
+}
+
+.tv-status-badge,
+.image-meta-bar,
+.viewport-controls,
+.upload-action-box,
+.callout-box {
+  border-radius: 10px;
+  background-color: var(--vd-ground);
+  border: 1px solid var(--vd-rule);
+}
+
+.callout-box {
+  border-left: 3px solid var(--rp-iris);
+}
+
+.btn,
+.btn-pill,
+.form-select,
+.color-swatch-btn,
+.checkbox-box,
+.toast,
+.modal-card {
+  border-radius: 8px;
+  transition: all 0.18s ease;
+}
+
+.modal-card {
+  border-radius: 16px;
+  background-color: var(--vd-surface);
+  border-color: var(--vd-rule);
+  box-shadow: var(--rp-shadow);
+}
+
+.art-card {
+  border-radius: 12px;
+  background-color: var(--vd-ground);
+  border: 1px solid var(--vd-rule);
+  overflow: hidden;
+  transition: all 0.18s ease;
+}
+
+.art-card:hover {
+  background-color: var(--vd-deep);
+  border-color: var(--rp-accent);
+}
+
+.art-card.is-active {
+  border: 2px solid var(--rp-accent);
+  box-shadow: 0 6px 20px rgba(215, 130, 126, 0.18);
+}
+
+.btn-pill.active,
+.btn-tool.active,
+.btn-toggle[data-state="on"],
+.badge-active {
+  background-color: var(--rp-accent);
+  color: var(--rp-accent-ink);
+  border-color: var(--rp-accent);
+  font-weight: 600;
+}
+
+.badge-active {
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.badge-type {
+  border-radius: 6px;
+}
+
+.btn-primary {
+  background-color: var(--vd-verdant);
+  color: #fffaf3;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--vd-verdant-hover);
+  color: #fffaf3;
+}
+
+:root.vd-night .btn-primary {
+  background-color: #ea9a97;
+  color: #232136;
+  border: none;
+}
+
+:root.vd-night .btn-primary:hover:not(:disabled) {
+  background-color: #eb6f92;
+  color: #232136;
+}
+
+.frame-simulator-container {
+  background-color: var(--vd-ground);
+  border-radius: 12px;
+  border: 1px solid var(--vd-rule);
+}
+
+.frame-bezel {
+  border-radius: 4px;
+  background: #241f26;
+  box-shadow: 0 18px 40px rgba(25, 20, 34, 0.28);
+}
+
+.status-indicator.online {
+  background-color: var(--rp-foam);
+  box-shadow: 0 0 0 3px rgba(86, 148, 159, 0.22);
+}
+
+.form-range,
+.progress-bar-track {
+  border-radius: 999px;
+}
+
+.form-range::-webkit-slider-thumb {
+  border-radius: 50%;
+  background: var(--rp-accent);
+  border: 2px solid var(--vd-surface);
+}
+
+.form-range::-moz-range-thumb {
+  border-radius: 50%;
+  background: var(--rp-accent);
+  border: 2px solid var(--vd-surface);
+}
+
+.gallery-empty-state {
+  border-radius: 12px;
+}
+
