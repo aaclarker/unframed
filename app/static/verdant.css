@@ -44,7 +44,7 @@
   --vd-deep:     #f2e9e1;              /* Overlay: oat inset controls & wells */
   --vd-ink:      #575279;              /* Text: plum-slate ink */
   --vd-secondary:#797593;              /* Subtle: muted periwinkle-slate */
-  --vd-mute:     #797593;              /* Secondary text & labels */
+  --vd-mute:     #6a6683;              /* Secondary text & labels (AA ≥4.5:1 on ground/surface/deep) */
   --vd-muted:    #9893a5;              /* Faint captions */
   --vd-accent:   #286983;              /* Pine: Aegean teal primary CTA */
   --vd-verdant:  #286983;              /* Primary CTA alias */
@@ -53,19 +53,20 @@
   --vd-rule:     #e6dfd8;              /* Soft warm border */
   --vd-guide:    #dfdad9;              /* Subtle divider */
   --vd-acid:     #d7827e;              /* Rose: terracotta blush active fill */
-  --vd-acid-ink: #fffaf3;              /* Cream text on terracotta rose */
-  --vd-alert:    #b4637a;              /* Love: berry crimson alert/destructive */
-  --vd-danger:   #b4637a;
+  --vd-acid-ink: #232136;              /* Twilight text on terracotta rose (5.5:1; cream was 2.7:1) */
+  --vd-alert:    #a44f67;              /* Love, deepened for AA text on linen */
+  --vd-danger:   #a44f67;
   --vd-veil:     rgba(87, 82, 121, 0.40);
 
   --rp-accent:      #d7827e;
-  --rp-accent-ink:  #fffaf3;
+  --rp-accent-ink:  #232136;
   --rp-accent-soft: #f5e0dc;
   --rp-pine:        #286983;
   --rp-foam:        #56949f;
   --rp-gold:        #ea9d34;
   --rp-iris:        #907aa9;
   --rp-shadow:      0 10px 30px -10px rgba(87, 82, 121, 0.09);
+  --vd-focus:       #286983;            /* Keyboard focus ring (pine) */
 
   --vd-sans:  "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
   --vd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
@@ -83,7 +84,7 @@
   --vd-deep:     #393552;              /* Overlay: dusk inset controls & wells */
   --vd-ink:      #e0def4;              /* Text: moonlit lavender-white */
   --vd-secondary:#908caa;              /* Subtle: soft periwinkle */
-  --vd-mute:     #908caa;              /* Secondary text & labels */
+  --vd-mute:     #a29fb8;              /* Secondary text & labels (AA ≥4.5:1 on deep) */
   --vd-muted:    #6e6a86;              /* Faint captions */
   --vd-accent:   #ea9a97;              /* Rose: warm blush primary CTA */
   --vd-verdant:  #ea9a97;
@@ -105,6 +106,7 @@
   --rp-gold:        #f6c177;
   --rp-iris:        #c4a7e7;
   --rp-shadow:      0 14px 36px -10px rgba(12, 10, 22, 0.48);
+  --vd-focus:       #9ccfd8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -115,7 +117,7 @@
     --vd-deep:     #393552;
     --vd-ink:      #e0def4;
     --vd-secondary:#908caa;
-    --vd-mute:     #908caa;
+    --vd-mute:     #a29fb8;
     --vd-muted:    #6e6a86;
     --vd-accent:   #ea9a97;
     --vd-verdant:  #ea9a97;
@@ -136,6 +138,7 @@
     --rp-gold:        #f6c177;
     --rp-iris:        #c4a7e7;
     --rp-shadow:      0 14px 36px -10px rgba(12, 10, 22, 0.48);
+    --vd-focus:       #9ccfd8;
   }
 }
 
