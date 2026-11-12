@@ -27,12 +27,12 @@
   ];
 
   const MATTE_TYPES = [
-    { id: 'none', label: 'None (Full Bleed)', class: 'matte-none' },
-    { id: 'modernthin', label: 'Modern Thin (~3%)', class: 'matte-modernthin' },
-    { id: 'modern', label: 'Modern (~6%)', class: 'matte-modern' },
-    { id: 'modernwide', label: 'Modern Wide (~10%)', class: 'matte-modernwide' },
-    { id: 'flexible', label: 'Flexible (~7% Bevel)', class: 'matte-flexible' },
-    { id: 'shadowbox', label: 'Shadow Box (~6% Inset)', class: 'matte-shadowbox' },
+    { id: 'none', label: 'None (0%)', class: 'matte-none' },
+    { id: 'modernthin', label: 'Modern Thin (3%)', class: 'matte-modernthin' },
+    { id: 'modern', label: 'Modern (6%)', class: 'matte-modern' },
+    { id: 'modernwide', label: 'Modern Wide (10%)', class: 'matte-modernwide' },
+    { id: 'flexible', label: 'Flexible (7% Bevel)', class: 'matte-flexible' },
+    { id: 'shadowbox', label: 'Shadow Box (6% Inset)', class: 'matte-shadowbox' },
     { id: 'panoramic', label: 'Panoramic (10%/4%)', class: 'matte-panoramic' }
   ];
 
@@ -65,6 +65,7 @@
     currentArtId: null,
     myPhotos: [],
     deletingContentId: null,
+    modalReturnFocus: null,
 
     // Polling timer
     pollTimer: null
@@ -82,6 +83,7 @@
     artModeText: document.getElementById('artModeText'),
     slideshowSelect: document.getElementById('slideshowSelect'),
     slideshowShuffleBtn: document.getElementById('slideshowShuffleBtn'),
+    slideshowShuffleText: document.getElementById('slideshowShuffleText'),
     refreshStatusBtn: document.getElementById('refreshStatusBtn'),
     themeToggleBtn: document.getElementById('themeToggleBtn'),
     themeIcon: document.getElementById('themeIcon'),
@@ -133,6 +135,7 @@
     pushToTvBtn: document.getElementById('pushToTvBtn'),
     uploadProgressWrap: document.getElementById('uploadProgressWrap'),
     uploadProgressBar: document.getElementById('uploadProgressBar'),
+    uploadProgressTrack: document.getElementById('uploadProgressTrack'),
     uploadProgressText: document.getElementById('uploadProgressText'),
 
     // Gallery
@@ -160,23 +163,65 @@
   dom.viewportCanvas.height = CANVAS_HEIGHT;
 
   // ---- Notifications / Toast ---------------------------------------------
-  function showToast(message, type = 'info', duration = 3500) {
+  function showToast(message, type = 'info', duration) {
+    // Errors stay up longer and interrupt screen readers; everything else is polite.
+    const ms = duration || (type === 'error' ? 8000 : 3500);
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    if (type === 'error') toast.setAttribute('role', 'alert');
     toast.innerHTML = `
       <span>${escapeHtml(message)}</span>
-      <button type="button" class="btn-link" style="color: inherit;" aria-label="Dismiss">✕</button>
+      <button type="button" class="btn-link" style="color: inherit;" aria-label="Dismiss notification"><span aria-hidden="true">✕</span></button>
     `;
     const closeBtn = toast.querySelector('button');
     closeBtn.addEventListener('click', () => toast.remove());
 
-    dom.toastContainer.appendChild(toast);
-    setTimeout(() => {
+    // Pause auto-dismiss while the pointer or keyboard focus is on the toast (WCAG 2.2.1)
+    let timer = null;
+    const dismiss = () => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateY(8px)';
       toast.style.transition = 'opacity 0.2s, transform 0.2s';
       setTimeout(() => toast.remove(), 200);
-    }, duration);
+    };
+    const arm = () => { clearTimeout(timer); timer = setTimeout(dismiss, ms); };
+    const pause = () => clearTimeout(timer);
+    toast.addEventListener('mouseenter', pause);
+    toast.addEventListener('mouseleave', arm);
+    toast.addEventListener('focusin', pause);
+    toast.addEventListener('focusout', arm);
+
+    dom.toastContainer.appendChild(toast);
+    arm();
+  }
+
+  function setPressed(el, pressed) {
+    el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  }
+
+  function setProgress(pct) {
+    dom.uploadProgressBar.style.width = `${pct}%`;
+    dom.uploadProgressTrack.setAttribute('aria-valuenow', String(pct));
+  }
+
+  function setShuffleUI(shuffle) {
+    dom.slideshowShuffleBtn.dataset.shuffle = shuffle ? 'true' : 'false';
+    setPressed(dom.slideshowShuffleBtn, shuffle);
+    dom.slideshowShuffleText.textContent = `Shuffle: ${shuffle ? 'On' : 'Off'}`;
+  }
+
+  function setArtModeUI(stateName) {
+    dom.artModeBtn.dataset.state = stateName;
+    dom.artModeText.textContent = stateName === 'unknown' ? '--' : stateName.toUpperCase();
+    if (stateName === 'unknown') dom.artModeBtn.removeAttribute('aria-pressed');
+    else setPressed(dom.artModeBtn, stateName === 'on');
+  }
+
+  function setFitModeUI(mode) {
+    dom.fitBtn.classList.toggle('active', mode === 'fit');
+    dom.fillBtn.classList.toggle('active', mode === 'fill');
+    setPressed(dom.fitBtn, mode === 'fit');
+    setPressed(dom.fillBtn, mode === 'fill');
   }
 
   function escapeHtml(str) {
@@ -196,7 +241,7 @@
 
     dom.themeToggleBtn.addEventListener('click', () => {
       const night = document.documentElement.classList.toggle('vd-night');
-      localStorage.setItem('vd-theme', night ? 'night' : 'day');
+      try { localStorage.setItem('vd-theme', night ? 'night' : 'day'); } catch (e) { /* storage blocked */ }
       updateThemeButton(night);
     });
   }
@@ -204,6 +249,7 @@
   function updateThemeButton(isNight) {
     dom.themeIcon.textContent = isNight ? '☾' : '☀';
     dom.themeLabel.textContent = isNight ? 'Moon' : 'Dawn';
+    setPressed(dom.themeToggleBtn, isNight);
   }
 
   // ---- Swatches & Matte Controls Setup ------------------------------------
@@ -217,6 +263,7 @@
       btn.dataset.colorId = color.id;
       btn.style.backgroundColor = color.hex;
       btn.title = `${color.name} (${color.hex})`;
+      btn.setAttribute('aria-pressed', color.id === state.matteColor ? 'true' : 'false');
       btn.innerHTML = `<span class="swatch-label">${escapeHtml(color.name)}</span>`;
 
       btn.addEventListener('click', () => {
@@ -248,6 +295,7 @@
     state.matteType = type;
     dom.matteTypePills.querySelectorAll('.btn-pill').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.type === type);
+      setPressed(btn, btn.dataset.type === type);
     });
     const item = MATTE_TYPES.find((m) => m.id === type) || { label: type };
     dom.currentMatteTypeLabel.textContent = item.label;
@@ -258,6 +306,7 @@
     state.matteColor = colorId;
     dom.colorSwatchGrid.querySelectorAll('.color-swatch-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.colorId === colorId);
+      setPressed(btn, btn.dataset.colorId === colorId);
     });
     const item = MATTE_COLORS.find((c) => c.id === colorId) || { name: colorId, hex: '' };
     dom.currentMatteColorLabel.textContent = `${item.name} · ${item.hex}`;
@@ -268,6 +317,7 @@
     state.photoFilter = filter;
     dom.filterPills.querySelectorAll('.btn-pill').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.filter === filter);
+      setPressed(btn, btn.dataset.filter === filter);
     });
     dom.currentFilterLabel.textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
   }
@@ -281,15 +331,12 @@
     dom.frameMatte.className = `frame-matte matte-${state.matteType}`;
 
     const colorItem = MATTE_COLORS.find((c) => c.id === state.matteColor) || MATTE_COLORS[0];
-    if (state.matteType === 'none') {
-      dom.frameMatte.style.backgroundColor = 'transparent';
-      dom.matteColorSection.style.opacity = '0.45';
-      dom.matteColorSection.style.pointerEvents = 'none';
-    } else {
-      dom.frameMatte.style.backgroundColor = colorItem.hex;
-      dom.matteColorSection.style.opacity = '1.0';
-      dom.matteColorSection.style.pointerEvents = 'auto';
-    }
+    const noMatte = state.matteType === 'none';
+    dom.frameMatte.style.backgroundColor = noMatte ? 'transparent' : colorItem.hex;
+    dom.matteColorSection.setAttribute('aria-disabled', noMatte ? 'true' : 'false');
+    dom.colorSwatchGrid.querySelectorAll('.color-swatch-btn').forEach((btn) => {
+      btn.disabled = noMatte;
+    });
 
     dom.targetMatteIdText.textContent = getComputedMatteId();
   }
@@ -364,8 +411,7 @@
       state.panX = 0;
       state.panY = 0;
       dom.zoomRange.value = 1.0;
-      dom.fitBtn.classList.add('active');
-      dom.fillBtn.classList.remove('active');
+      setFitModeUI('fit');
       renderCanvas();
     });
 
@@ -375,8 +421,7 @@
       state.panX = 0;
       state.panY = 0;
       dom.zoomRange.value = 1.0;
-      dom.fillBtn.classList.add('active');
-      dom.fitBtn.classList.remove('active');
+      setFitModeUI('fill');
       renderCanvas();
     });
 
@@ -385,6 +430,7 @@
       state.showGrid = !state.showGrid;
       dom.gridOverlay.style.display = state.showGrid ? 'block' : 'none';
       dom.gridToggleBtn.classList.toggle('active', state.showGrid);
+      setPressed(dom.gridToggleBtn, state.showGrid);
     });
 
     // Controls: Reset Crop
@@ -395,8 +441,8 @@
       state.rotation = 0;
       state.fitMode = 'fill';
       dom.zoomRange.value = 1.0;
-      dom.fillBtn.classList.add('active');
-      dom.fitBtn.classList.remove('active');
+      dom.zoomValue.textContent = '1.00×';
+      setFitModeUI('fill');
       renderCanvas();
     });
 
@@ -431,6 +477,27 @@
         state.isDragging = false;
         dom.artViewport.classList.remove('is-panning');
       }
+    });
+
+    // Keyboard Pan & Zoom
+    dom.artViewport.addEventListener('keydown', (e) => {
+      if (!state.image) return;
+      const step = e.shiftKey ? 120 : 24; // canvas px (1920×1080 space)
+      const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+      if (moves[e.key]) {
+        state.panX += moves[e.key][0];
+        state.panY += moves[e.key][1];
+        renderCanvas();
+      } else if (e.key === '+' || e.key === '=') {
+        setZoom(state.zoom + 0.1);
+      } else if (e.key === '-' || e.key === '_') {
+        setZoom(state.zoom - 0.1);
+      } else if (e.key === '0') {
+        dom.resetCropBtn.click();
+      } else {
+        return;
+      }
+      e.preventDefault();
     });
 
     // Mouse Wheel Zoom
@@ -537,8 +604,8 @@
         dom.fillBtn.disabled = false;
         dom.resetCropBtn.disabled = false;
         dom.pushToTvBtn.disabled = false;
-        dom.fillBtn.classList.add('active');
-        dom.fitBtn.classList.remove('active');
+        setFitModeUI('fill');
+        dom.artViewport.tabIndex = 0;
 
         renderCanvas();
         showToast(`Loaded ${file.name} (${img.naturalWidth}×${img.naturalHeight})`, 'success');
@@ -626,7 +693,7 @@
 
     dom.pushToTvBtn.disabled = true;
     dom.uploadProgressWrap.style.display = 'flex';
-    dom.uploadProgressBar.style.width = '20%';
+    setProgress(20);
     dom.uploadProgressText.textContent = 'Rendering 3840×2160 UHD canvas...';
 
     try {
@@ -657,7 +724,7 @@
       octx.drawImage(state.image, -drawWUHD / 2, -drawHUHD / 2, drawWUHD, drawHUHD);
       octx.restore();
 
-      dom.uploadProgressBar.style.width = '45%';
+      setProgress(45);
       dom.uploadProgressText.textContent = 'Encoding 4K JPEG (0.95 quality)...';
 
       // 2. Export as high-quality JPEG Blob
@@ -668,7 +735,7 @@
         }, 'image/jpeg', 0.95);
       });
 
-      dom.uploadProgressBar.style.width = '65%';
+      setProgress(65);
       dom.uploadProgressText.textContent = 'Transmitting to Samsung The Frame...';
 
       // 3. Build multipart FormData
@@ -690,7 +757,7 @@
         body: formData
       });
 
-      dom.uploadProgressBar.style.width = '90%';
+      setProgress(90);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -698,7 +765,7 @@
       }
 
       const result = await response.json().catch(() => ({}));
-      dom.uploadProgressBar.style.width = '100%';
+      setProgress(100);
       dom.uploadProgressText.textContent = 'Upload complete! Artwork installed.';
 
       showToast(`Artwork pushed to The Frame (${result.content_id || 'OK'})!`, 'success');
@@ -740,8 +807,7 @@
       // Art Mode status (handle both "artmode" and "art_mode")
       const artMode = (data.artmode || data.art_mode || data.mode || '').toLowerCase();
       const isArtModeOn = artMode === 'on';
-      dom.artModeBtn.dataset.state = isArtModeOn ? 'on' : 'off';
-      dom.artModeText.textContent = isArtModeOn ? 'ON' : 'OFF';
+      setArtModeUI(isArtModeOn ? 'on' : 'off');
 
       // Slideshow status
       if (data.slideshow && typeof data.slideshow === 'object') {
@@ -760,8 +826,7 @@
 
         const rawShuffle = data.slideshow.shuffle ?? data.slideshow.type;
         const shuffle = rawShuffle === true || rawShuffle === 'on' || rawShuffle === 'true' || rawShuffle === 'shuffleslideshow';
-        dom.slideshowShuffleBtn.dataset.shuffle = shuffle ? 'true' : 'false';
-        dom.slideshowShuffleBtn.textContent = `🔀 Shuffle: ${shuffle ? 'ON' : 'Off'}`;
+        setShuffleUI(shuffle);
       }
 
       // Current Artwork content_id
@@ -780,8 +845,8 @@
       dom.tvStatusIndicator.className = 'status-indicator offline';
       const ip = (state.tvStatus && state.tvStatus.tv_ip) || 'The Frame';
       dom.tvStatusText.textContent = `${ip} · Offline / Unreachable`;
-      dom.artModeBtn.dataset.state = 'unknown';
-      dom.artModeText.textContent = '--';
+      setArtModeUI('unknown');
+      dom.galleryGrid.setAttribute('aria-busy', 'false');
     }
   }
 
@@ -858,8 +923,7 @@
         body: JSON.stringify({ status: targetState, art_mode: targetState, mode: targetState })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      dom.artModeBtn.dataset.state = targetState;
-      dom.artModeText.textContent = targetState.toUpperCase();
+      setArtModeUI(targetState);
       showToast(`Art Mode set to ${targetState.toUpperCase()}`, 'success');
     } catch (err) {
       showToast(`Failed to toggle Art Mode: ${err.message}`, 'error');
@@ -902,11 +966,12 @@
   function renderGallery() {
     const photos = state.myPhotos;
     dom.galleryCountText.textContent = `${photos.length} item${photos.length === 1 ? '' : 's'}`;
+    dom.galleryGrid.setAttribute('aria-busy', 'false');
 
     if (!photos || photos.length === 0) {
       dom.galleryGrid.innerHTML = `
         <div class="gallery-empty-state">
-          <div class="empty-icon">🖼</div>
+          <div class="empty-icon" aria-hidden="true">🖼</div>
           <div class="empty-title">No Personal Artwork Found</div>
           <div class="empty-desc">Your TV's "My Collection" (MY-C0002) is currently empty. Use the Studio on the left to push your first artwork!</div>
         </div>
@@ -927,7 +992,7 @@
 
       card.innerHTML = `
         <div class="art-card-thumb-wrap">
-          <img class="art-card-thumb" src="/api/thumbnail/${encodeURIComponent(id)}" alt="${escapeHtml(id)}" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'320\\' height=\\'180\\' fill=\\'%23222\\'><rect width=\\'100%\\' height=\\'100%\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%23666\\' font-family=\\'monospace\\' font-size=\\'14\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'>Thumbnail</text></svg>'">
+          <img class="art-card-thumb" src="/api/thumbnail/${encodeURIComponent(id)}" alt="Artwork ${escapeHtml(id)}${isActive ? ' (showing on TV)' : ''}" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'320\\' height=\\'180\\' fill=\\'%23222\\'><rect width=\\'100%\\' height=\\'100%\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%23666\\' font-family=\\'monospace\\' font-size=\\'14\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'>Thumbnail</text></svg>'">
           ${isActive ? '<span class="badge-active">ACTIVE ON TV</span>' : ''}
           <span class="badge-type">${escapeHtml(contentType)}</span>
         </div>
@@ -943,13 +1008,13 @@
             </div>
           </div>
           <div class="art-card-actions">
-            <button type="button" class="btn btn-card-action btn-select" data-id="${escapeHtml(id)}" title="Display on The Frame immediately">
+            <button type="button" class="btn btn-card-action btn-select" data-id="${escapeHtml(id)}" title="Display on The Frame immediately" aria-label="Display ${escapeHtml(id)} now">
               Display Now
             </button>
-            <button type="button" class="btn btn-card-action btn-apply-matte" data-id="${escapeHtml(id)}" title="Apply matte selected in Studio above">
+            <button type="button" class="btn btn-card-action btn-apply-matte" data-id="${escapeHtml(id)}" title="Apply matte selected in Studio above" aria-label="Apply selected matte to ${escapeHtml(id)}">
               Apply Matte
             </button>
-            <button type="button" class="btn btn-card-action btn-del" data-id="${escapeHtml(id)}" title="Delete artwork from TV">
+            <button type="button" class="btn btn-card-action btn-del" data-id="${escapeHtml(id)}" title="Delete artwork from TV" aria-label="Delete ${escapeHtml(id)} from TV">
               Delete
             </button>
           </div>
@@ -1013,13 +1078,42 @@
 
   function openDeleteModal(contentId) {
     state.deletingContentId = contentId;
+    state.modalReturnFocus = document.activeElement;
     dom.deleteContentIdText.textContent = contentId;
     dom.deleteModal.style.display = 'flex';
+    // Start on the safe choice
+    dom.cancelDeleteBtn.focus();
   }
 
   function closeDeleteModal() {
     state.deletingContentId = null;
     dom.deleteModal.style.display = 'none';
+    // Return focus to the card's Delete button, or the gallery if that card is gone
+    const back = state.modalReturnFocus;
+    state.modalReturnFocus = null;
+    if (back && document.contains(back)) back.focus();
+    else dom.refreshGalleryBtn.focus();
+  }
+
+  function handleModalKeydown(e) {
+    if (dom.deleteModal.style.display === 'none') return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeDeleteModal();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    // Keep Tab inside the dialog
+    const focusables = [...dom.deleteModal.querySelectorAll('button:not(:disabled)')];
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   }
 
   async function handleConfirmDelete() {
@@ -1033,6 +1127,8 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast(`Deleted ${id} from TV storage`, 'success');
+      // The card (and its Delete button) is about to be re-rendered away
+      state.modalReturnFocus = dom.refreshGalleryBtn;
       closeDeleteModal();
       await fetchTvStatus();
     } catch (err) {
@@ -1053,9 +1149,7 @@
     dom.slideshowSelect.addEventListener('change', updateSlideshow);
     dom.slideshowShuffleBtn.addEventListener('click', () => {
       const current = dom.slideshowShuffleBtn.dataset.shuffle === 'true';
-      const next = !current;
-      dom.slideshowShuffleBtn.dataset.shuffle = next ? 'true' : 'false';
-      dom.slideshowShuffleBtn.textContent = `🔀 Shuffle: ${next ? 'ON' : 'Off'}`;
+      setShuffleUI(!current);
       updateSlideshow();
     });
 
@@ -1083,6 +1177,7 @@
     dom.deleteModal.addEventListener('click', (e) => {
       if (e.target === dom.deleteModal) closeDeleteModal();
     });
+    document.addEventListener('keydown', handleModalKeydown);
 
     // Initial TV status fetch (no aggressive background polling so TV WebSocket isn't churned)
     fetchTvStatus();

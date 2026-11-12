@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unframed · Studio</title>
   <script>
-    // Initialize theme before render to eliminate flash of light mode
+    // Initialize theme before render to eliminate flash of light mode.
+    // An explicit choice wins; otherwise follow the OS colour scheme.
     (function() {
-      const saved = localStorage.getItem('vd-theme');
-      if (saved === 'night') {
+      let saved = null;
+      try { saved = localStorage.getItem('vd-theme'); } catch (e) {}
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'night' || (saved === null && prefersDark)) {
         document.documentElement.classList.add('vd-night');
       }
     })();
@@ -18,7 +21,7 @@
 </head>
 <body class="vd-base">
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  <div id="toastContainer" class="toast-container" role="region" aria-label="Notifications" aria-live="polite"></div>
 
   <!-- Masthead & Live TV Status Bar -->
   <header class="masthead">
@@ -33,25 +36,25 @@
       </div>
 
       <div class="tv-status-badge" id="tvStatusBadge">
-        <span class="status-indicator online" id="tvStatusIndicator"></span>
-        <span class="tv-status-text mono" id="tvStatusText">Auto-detecting The Frame on LAN…</span>
-        <select id="tvPickerSelect" class="form-select mono" title="Switch Frame TV" style="display: none; margin-left: 0.5rem;"></select>
+        <span class="status-indicator online" id="tvStatusIndicator" aria-hidden="true"></span>
+        <span class="tv-status-text mono" id="tvStatusText" role="status">Auto-detecting The Frame on LAN…</span>
+        <select id="tvPickerSelect" class="form-select mono" title="Switch Frame TV" aria-label="Frame TV" style="display: none; margin-left: 0.5rem;"></select>
       </div>
     </div>
 
     <div class="masthead-controls">
       <!-- Art Mode Quick Toggle -->
       <div class="ctrl-group">
-        <span class="ctrl-label">Art Mode</span>
-        <button type="button" class="btn btn-toggle" id="artModeBtn" data-state="unknown">
-          <span class="toggle-indicator"></span>
+        <span class="ctrl-label" id="artModeLabel">Art Mode</span>
+        <button type="button" class="btn btn-toggle" id="artModeBtn" data-state="unknown" aria-labelledby="artModeLabel">
+          <span class="toggle-indicator" aria-hidden="true"></span>
           <span class="toggle-text mono" id="artModeText">--</span>
         </button>
       </div>
 
       <!-- Slideshow Controls -->
       <div class="ctrl-group">
-        <span class="ctrl-label">Slideshow</span>
+        <label class="ctrl-label" for="slideshowSelect">Slideshow</label>
         <div class="slideshow-inputs">
           <select id="slideshowSelect" class="form-select mono" title="Slideshow Interval">
             <option value="off">Off</option>
@@ -61,8 +64,8 @@
             <option value="1h">1 hr</option>
             <option value="1d">1 day</option>
           </select>
-          <button type="button" class="btn btn-sm mono" id="slideshowShuffleBtn" title="Toggle Shuffle Mode" data-shuffle="false">
-            🔀 Shuffle: Off
+          <button type="button" class="btn btn-sm mono" id="slideshowShuffleBtn" title="Toggle Shuffle Mode" data-shuffle="false" aria-pressed="false">
+            <span aria-hidden="true">🔀</span> <span id="slideshowShuffleText">Shuffle: Off</span>
           </button>
         </div>
       </div>
@@ -70,15 +73,15 @@
       <!-- General Actions -->
       <div class="ctrl-group-actions">
         <button type="button" class="btn btn-icon" id="discoverTvBtn" title="Auto-detect Samsung The Frame TVs on LAN">
-          <span class="icon">⌕</span>
+          <span class="icon" aria-hidden="true">⌕</span>
           <span class="btn-text">Scan LAN</span>
         </button>
         <button type="button" class="btn btn-icon" id="refreshStatusBtn" title="Refresh TV Status &amp; Gallery">
-          <span class="icon">⟳</span>
+          <span class="icon" aria-hidden="true">⟳</span>
           <span class="btn-text">Sync</span>
         </button>
-        <button type="button" class="btn btn-theme" id="themeToggleBtn" title="Toggle Rosé Pine Dawn / Moon">
-          <span class="theme-icon" id="themeIcon">☀</span>
+        <button type="button" class="btn btn-theme" id="themeToggleBtn" title="Toggle Rosé Pine Dawn / Moon" aria-label="Dark theme (Moon)" aria-pressed="false">
+          <span class="theme-icon" id="themeIcon" aria-hidden="true">☀</span>
           <span class="theme-label" id="themeLabel">Dawn</span>
         </button>
       </div>
@@ -95,9 +98,9 @@
           <span class="pane-subheading mono">3840 × 2160 UHD · 16:9 Canvas</span>
         </div>
         <div class="pane-actions">
-          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="visually-hidden" aria-label="Choose artwork image" tabindex="-1">
           <button type="button" class="btn btn-sm" id="chooseFileBtn">
-            <span>↑ Choose Image</span>
+            <span><span aria-hidden="true">↑</span> Choose Image</span>
           </button>
         </div>
       </div>
@@ -106,7 +109,7 @@
       <div class="image-meta-bar" id="imageMetaBar" style="display: none;">
         <span class="file-name mono" id="imageFileName">image.jpg</span>
         <span class="file-dims mono" id="imageNaturalDims">0 × 0 px</span>
-        <button type="button" class="btn-link mono" id="clearImageBtn">[Change / Clear]</button>
+        <button type="button" class="btn-link mono" id="clearImageBtn">Change image</button>
       </div>
 
       <!-- Interactive Frame Simulator Viewport -->
@@ -116,10 +119,10 @@
           <!-- Realistic Matte Simulator (dynamic padding & color) -->
           <div class="frame-matte matte-none" id="frameMatte">
             <!-- 16:9 Art Canvas Viewport -->
-            <div class="art-viewport" id="artViewport">
-              <canvas id="viewportCanvas" width="960" height="540"></canvas>
+            <div class="art-viewport" id="artViewport" role="group" aria-label="Crop preview. Arrow keys pan (Shift for larger steps), plus and minus zoom, 0 resets." aria-describedby="sourceCropText">
+              <canvas id="viewportCanvas" width="960" height="540" aria-hidden="true"></canvas>
               <!-- Rule of Thirds Grid Overlay -->
-              <div class="grid-overlay" id="gridOverlay" style="display: none;">
+              <div class="grid-overlay" id="gridOverlay" style="display: none;" aria-hidden="true">
                 <div class="grid-line grid-v1"></div>
                 <div class="grid-line grid-v2"></div>
                 <div class="grid-line grid-h1"></div>
@@ -128,7 +131,7 @@
               <!-- Empty Dropzone State Overlay -->
               <div class="viewport-dropzone" id="viewportDropzone">
                 <div class="dropzone-card">
-                  <div class="dropzone-icon">⬚</div>
+                  <div class="dropzone-icon" aria-hidden="true">⬚</div>
                   <div class="dropzone-title">Drop 4K Artwork Here</div>
                   <div class="dropzone-desc">Drag &amp; drop any JPEG, PNG, or WebP image, or click below.</div>
                   <button type="button" class="btn btn-dropzone" id="dropzoneBrowseBtn">Select File</button>
@@ -150,11 +153,11 @@
           </div>
 
           <div class="button-group">
-            <button type="button" class="btn btn-tool mono" id="rotateBtn" title="Rotate 90° Clockwise" disabled>⟳ 90°</button>
+            <button type="button" class="btn btn-tool mono" id="rotateBtn" title="Rotate 90° Clockwise" aria-label="Rotate 90° clockwise" disabled><span aria-hidden="true">⟳</span> 90°</button>
             <button type="button" class="btn btn-tool mono" id="centerBtn" title="Center Artwork" disabled>Center</button>
-            <button type="button" class="btn btn-tool mono" id="fitBtn" title="Fit to 16:9 bounds" disabled>Fit</button>
-            <button type="button" class="btn btn-tool mono" id="fillBtn" title="Fill 16:9 canvas" disabled>Fill</button>
-            <button type="button" class="btn btn-tool mono" id="gridToggleBtn" title="Toggle Rule of Thirds Grid"># Grid</button>
+            <button type="button" class="btn btn-tool mono" id="fitBtn" title="Fit to 16:9 bounds" aria-pressed="false" disabled>Fit</button>
+            <button type="button" class="btn btn-tool mono" id="fillBtn" title="Fill 16:9 canvas" aria-pressed="true" disabled>Fill</button>
+            <button type="button" class="btn btn-tool mono" id="gridToggleBtn" title="Toggle Rule of Thirds Grid" aria-pressed="false"><span aria-hidden="true">#</span> Grid</button>
             <button type="button" class="btn btn-tool mono" id="resetCropBtn" title="Reset transforms" disabled>Reset</button>
           </div>
         </div>
@@ -180,44 +183,44 @@
       <div class="matte-config-panel">
         <div class="config-section">
           <div class="config-header">
-            <span class="config-title">Matte Style</span>
-            <span class="config-current mono" id="currentMatteTypeLabel">Flexible (~7% Bevel)</span>
+            <span class="config-title" id="matteTypeTitle">Matte Style</span>
+            <span class="config-current mono" id="currentMatteTypeLabel">Flexible (7% Bevel)</span>
           </div>
-          <div class="matte-type-pills" id="matteTypePills" role="radiogroup" aria-label="Matte Style">
-            <button type="button" class="btn-pill" data-type="none">None (0%)</button>
-            <button type="button" class="btn-pill" data-type="modernthin">Modern Thin (3%)</button>
-            <button type="button" class="btn-pill" data-type="modern">Modern (6%)</button>
-            <button type="button" class="btn-pill" data-type="modernwide">Modern Wide (10%)</button>
-            <button type="button" class="btn-pill active" data-type="flexible">Flexible (7% Bevel)</button>
-            <button type="button" class="btn-pill" data-type="shadowbox">Shadow Box (6% Inset)</button>
-            <button type="button" class="btn-pill" data-type="panoramic">Panoramic (10%/4%)</button>
+          <div class="matte-type-pills" id="matteTypePills" role="group" aria-labelledby="matteTypeTitle">
+            <button type="button" class="btn-pill" data-type="none" aria-pressed="false">None (0%)</button>
+            <button type="button" class="btn-pill" data-type="modernthin" aria-pressed="false">Modern Thin (3%)</button>
+            <button type="button" class="btn-pill" data-type="modern" aria-pressed="false">Modern (6%)</button>
+            <button type="button" class="btn-pill" data-type="modernwide" aria-pressed="false">Modern Wide (10%)</button>
+            <button type="button" class="btn-pill active" data-type="flexible" aria-pressed="true">Flexible (7% Bevel)</button>
+            <button type="button" class="btn-pill" data-type="shadowbox" aria-pressed="false">Shadow Box (6% Inset)</button>
+            <button type="button" class="btn-pill" data-type="panoramic" aria-pressed="false">Panoramic (10%/4%)</button>
           </div>
         </div>
 
         <div class="config-section" id="matteColorSection">
           <div class="config-header">
-            <span class="config-title">Matte Color</span>
+            <span class="config-title" id="matteColorTitle">Matte Color</span>
             <span class="config-current mono" id="currentMatteColorLabel">Polar · #f4f5f0</span>
           </div>
           <!-- 16 Official Samsung Matte Colors -->
-          <div class="color-swatch-grid" id="colorSwatchGrid" role="radiogroup" aria-label="Matte Color">
+          <div class="color-swatch-grid" id="colorSwatchGrid" role="group" aria-labelledby="matteColorTitle">
             <!-- Rendered by JS / Accessible buttons -->
           </div>
         </div>
 
         <div class="config-section">
           <div class="config-header">
-            <span class="config-title">Photo Filter</span>
+            <span class="config-title" id="filterTitle">Photo Filter</span>
             <span class="config-current mono" id="currentFilterLabel">None</span>
           </div>
-          <div class="filter-pills" id="filterPills" role="radiogroup" aria-label="Photo Filter">
-            <button type="button" class="btn-pill active" data-filter="None">None</button>
-            <button type="button" class="btn-pill" data-filter="Aqua">Aqua</button>
-            <button type="button" class="btn-pill" data-filter="ArtDeco">ArtDeco</button>
-            <button type="button" class="btn-pill" data-filter="Ink">Ink</button>
-            <button type="button" class="btn-pill" data-filter="Wash">Wash</button>
-            <button type="button" class="btn-pill" data-filter="Pastel">Pastel</button>
-            <button type="button" class="btn-pill" data-filter="Feuve">Feuve</button>
+          <div class="filter-pills" id="filterPills" role="group" aria-labelledby="filterTitle">
+            <button type="button" class="btn-pill active" data-filter="None" aria-pressed="true">None</button>
+            <button type="button" class="btn-pill" data-filter="Aqua" aria-pressed="false">Aqua</button>
+            <button type="button" class="btn-pill" data-filter="ArtDeco" aria-pressed="false">ArtDeco</button>
+            <button type="button" class="btn-pill" data-filter="Ink" aria-pressed="false">Ink</button>
+            <button type="button" class="btn-pill" data-filter="Wash" aria-pressed="false">Wash</button>
+            <button type="button" class="btn-pill" data-filter="Pastel" aria-pressed="false">Pastel</button>
+            <button type="button" class="btn-pill" data-filter="Feuve" aria-pressed="false">Feuve</button>
           </div>
         </div>
 
@@ -226,7 +229,7 @@
           <div class="upload-options">
             <label class="custom-checkbox">
               <input type="checkbox" id="showNowCheckbox" checked>
-              <span class="checkbox-box"></span>
+              <span class="checkbox-box" aria-hidden="true"></span>
               <span class="checkbox-label">Display immediately on TV</span>
             </label>
             <span class="upload-hint mono">Matte ID: <span id="targetMatteIdText">none</span></span>
@@ -235,16 +238,16 @@
           <div class="upload-buttons">
             <button type="button" class="btn btn-primary" id="pushToTvBtn" disabled>
               <span class="btn-label">Push to The Frame</span>
-              <span class="btn-arrow">↗</span>
+              <span class="btn-arrow" aria-hidden="true">↗</span>
             </button>
           </div>
 
           <!-- Progress / Status Feedback -->
           <div class="upload-progress-wrap" id="uploadProgressWrap" style="display: none;">
-            <div class="progress-bar-track">
+            <div class="progress-bar-track" role="progressbar" id="uploadProgressTrack" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <div class="progress-bar-fill" id="uploadProgressBar" style="width: 0%;"></div>
             </div>
-            <div class="progress-text mono" id="uploadProgressText">Processing 3840×2160 UHD canvas...</div>
+            <div class="progress-text mono" id="uploadProgressText" role="status">Processing 3840×2160 UHD canvas...</div>
           </div>
         </div>
       </div>
@@ -259,7 +262,7 @@
         </div>
         <div class="pane-actions">
           <button type="button" class="btn btn-sm" id="refreshGalleryBtn">
-            <span class="icon">⟳</span> Refresh
+            <span class="icon" aria-hidden="true">⟳</span> Refresh
           </button>
         </div>
       </div>
@@ -267,15 +270,15 @@
       <!-- Quick Advice Callout -->
       <div class="callout-box">
         <div class="callout-text">
-          Select any TV artwork to display it now, or click <strong>Apply Selected Matte</strong> to restyle an existing photo with the matte selected in the studio above without re-uploading.
+          Click <strong>Display Now</strong> to show an artwork on the TV, or <strong>Apply Matte</strong> to restyle an existing photo with the matte selected in the studio above without re-uploading.
         </div>
       </div>
 
       <!-- TV Artwork Grid -->
-      <div class="gallery-grid" id="galleryGrid">
+      <div class="gallery-grid" id="galleryGrid" aria-busy="true">
         <!-- Rendered dynamically by app.js -->
         <div class="gallery-empty-state" id="galleryEmptyState">
-          <div class="empty-icon">🖼</div>
+          <div class="empty-icon" aria-hidden="true">🖼</div>
           <div class="empty-title">Loading TV Artwork...</div>
           <div class="empty-desc mono">Querying /api/status</div>
         </div>
@@ -284,13 +287,13 @@
   </main>
 
   <!-- Delete Confirmation Modal -->
-  <div class="modal-scrim" id="deleteModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+  <div class="modal-scrim" id="deleteModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDesc">
     <div class="modal-card">
       <div class="modal-header">
         <h3 class="modal-title" id="deleteModalTitle">Delete Artwork from TV</h3>
-        <button type="button" class="btn-close" id="closeDeleteModalBtn" aria-label="Close">✕</button>
+        <button type="button" class="btn-close" id="closeDeleteModalBtn" aria-label="Close"><span aria-hidden="true">✕</span></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="deleteModalDesc">
         <p>Are you sure you want to delete artwork <strong class="mono" id="deleteContentIdText">MY_F0000</strong> from The Frame's internal storage?</p>
         <p class="modal-warning">This action cannot be undone on the TV.</p>
       </div>

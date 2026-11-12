@@ -45,6 +45,13 @@ body {
   border: 0;
 }
 
+/* ---- Keyboard Focus ---------------------------------------------------- */
+/* One visible ring for every interactive element (WCAG 2.4.7). */
+:focus-visible {
+  outline: 2px solid var(--vd-focus);
+  outline-offset: 2px;
+}
+
 /* ---- Masthead & Status Bar --------------------------------------------- */
 .masthead {
   background: var(--vd-deep);
@@ -124,11 +131,6 @@ body {
   border-radius: 50% !important; /* Circle exception for status dot */
   display: inline-block;
   background-color: var(--vd-mute);
-}
-
-.status-indicator.online {
-  background-color: #28a745;
-  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
 }
 
 .status-indicator.offline {
@@ -237,30 +239,6 @@ body {
   color: var(--vd-mute);
 }
 
-.btn-primary {
-  background: var(--vd-ink);
-  color: var(--vd-ground);
-  border-color: var(--vd-ink);
-  font-weight: 600;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--vd-accent);
-  color: #fff;
-  border-color: var(--vd-accent);
-}
-
-:root.vd-night .btn-primary {
-  background: var(--vd-acid);
-  color: var(--vd-acid-ink);
-  border-color: var(--vd-acid);
-}
-
-:root.vd-night .btn-primary:hover:not(:disabled) {
-  background: #c3e83b;
-  border-color: #c3e83b;
-}
-
 .btn-destructive {
   color: var(--vd-alert);
   border-color: var(--vd-alert);
@@ -268,7 +246,7 @@ body {
 
 .btn-destructive:hover:not(:disabled) {
   background: var(--vd-alert);
-  color: #fff;
+  color: var(--vd-ground);
 }
 
 .btn-link {
@@ -293,10 +271,9 @@ body {
   border: 1px solid var(--vd-rule);
   padding: 5px 8px;
   cursor: pointer;
-  outline: none;
 }
 
-.form-select:focus {
+.form-select:focus-visible {
   border-color: var(--vd-ink);
 }
 
@@ -469,6 +446,10 @@ body {
   cursor: grab;
 }
 
+.art-viewport:focus-visible {
+  outline-offset: -3px;
+}
+
 .art-viewport.is-panning {
   cursor: grabbing !important;
 }
@@ -527,7 +508,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(18, 24, 20, 0.85);
+  background: rgba(35, 33, 54, 0.88);
   backdrop-filter: blur(2px);
   z-index: 10;
   cursor: pointer;
@@ -535,7 +516,7 @@ body {
 }
 
 .viewport-dropzone.drag-over {
-  background: rgba(45, 70, 56, 0.95);
+  background: rgba(57, 53, 82, 0.95);
   border: 2px dashed var(--vd-acid);
 }
 
@@ -543,7 +524,7 @@ body {
   text-align: center;
   padding: 24px;
   max-width: 380px;
-  color: #f2f4ee;
+  color: #e0def4;
 }
 
 .dropzone-icon {
@@ -561,13 +542,13 @@ body {
 
 .dropzone-desc {
   font-size: 13px;
-  color: #c2c9bf;
+  color: #c9c6dd;
   margin-bottom: 14px;
 }
 
 .btn-dropzone {
-  background: var(--vd-acid);
-  color: var(--vd-acid-ink);
+  background: #ea9a97;
+  color: #232136;
   font-weight: 700;
   border: 1px solid var(--vd-acid);
   padding: 7px 18px;
@@ -576,7 +557,7 @@ body {
 
 .dropzone-note {
   font-size: 11px;
-  color: #9ba697;
+  color: #a29fb8;
 }
 
 /* ---- Viewport Crop Tools ----------------------------------------------- */
@@ -616,7 +597,6 @@ body {
   flex: 1;
   height: 6px;
   background: var(--vd-rule);
-  outline: none;
   cursor: pointer;
   -webkit-appearance: none;
 }
@@ -771,7 +751,6 @@ body {
   align-items: flex-end;
   justify-content: center;
   padding: 2px;
-  outline: none;
   transition: transform 0.1s, border-color 0.15s;
 }
 
@@ -781,12 +760,19 @@ body {
 }
 
 .color-swatch-btn.active {
-  outline: 2px solid var(--vd-ink);
-  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--vd-surface), 0 0 0 4px var(--vd-ink);
+}
+
+.color-swatch-btn:disabled {
+  cursor: not-allowed;
+}
+
+#matteColorSection[aria-disabled="true"] .color-swatch-grid {
+  opacity: 0.45;
 }
 
 .swatch-label {
-  font-size: 9px;
+  font-size: 10px;
   font-family: var(--vd-sans);
   font-weight: 600;
   text-transform: capitalize;
@@ -829,7 +815,19 @@ body {
 }
 
 .custom-checkbox input[type="checkbox"] {
-  display: none;
+  /* Visually hidden but still focusable and announced */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.custom-checkbox input[type="checkbox"]:focus-visible + .checkbox-box {
+  outline: 2px solid var(--vd-focus);
+  outline-offset: 2px;
 }
 
 .checkbox-box {
@@ -1033,7 +1031,7 @@ body {
 
 .btn-card-action.btn-del:hover {
   background: var(--vd-alert);
-  color: #fff;
+  color: var(--vd-ground);
 }
 
 .gallery-empty-state {
@@ -1161,7 +1159,7 @@ body {
 
 .toast.toast-error {
   background: var(--vd-alert);
-  color: #fff;
+  color: var(--vd-ground);
 }
 
 .toast.toast-success {
@@ -1322,3 +1320,42 @@ body {
   border-radius: 12px;
 }
 
+/* ---- Small Screens ----------------------------------------------------- */
+@media (max-width: 600px) {
+  /* The 16:9 viewport is only ~180px tall on a phone: keep the dropzone to its title + button */
+  .dropzone-card { padding: 8px; }
+  .dropzone-icon,
+  .dropzone-desc,
+  .dropzone-note { display: none; }
+  .dropzone-title { font-size: 15px; margin-bottom: 8px; }
+  .btn-dropzone { margin-bottom: 0; }
+
+  .ctrl-group-actions {
+    padding-left: 0;
+    border-left: none;
+  }
+}
+
+/* ---- Touch Targets ----------------------------------------------------- */
+@media (pointer: coarse) {
+  .btn,
+  .btn-pill,
+  .form-select {
+    min-height: 40px;
+  }
+  .btn-close {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* ---- Reduced Motion ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .color-swatch-btn:hover { transform: none; }
+}
