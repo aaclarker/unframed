@@ -1,0 +1,22 @@
+services:
+  unframed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unframed
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8094}:8000"
+    environment:
+      - TZ=${TZ:-UTC}
+      - FRAME_TV_IP=${FRAME_TV_IP:?Set FRAME_TV_IP in .env}
+      - FRAME_TV_PORT=${FRAME_TV_PORT:-8002}
+      - FRAME_TV_WS_NAME=${FRAME_TV_WS_NAME:-Unframed}
+      - FRAME_TV_TOKEN=${FRAME_TV_TOKEN:-}
+      - THUMB_CACHE_DIR=/data/thumbs
+      - FRAME_TV_TOKEN_FILE=/data/.tv_token
+    volumes:
+      - unframed-data:/data
+
+volumes:
+  unframed-data:

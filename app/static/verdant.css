@@ -1,0 +1,126 @@
+/* ==========================================================================
+   Verdant — Amaro's reusable theme pair (Day + Night)
+   --------------------------------------------------------------------------
+   Adapted from the NOISE Verdant theme on https://news.jzz.bz
+   ("Night is sage, day is paper"). See README.md for the design rules and
+   per-app adapters.
+
+   Modes:
+     Day   (default)          :root
+     Night (explicit)         :root.vd-night   or  :root[data-vd-theme="night"]
+     Auto  (follow the OS)    :root.vd-auto    → Night when prefers-color-scheme: dark
+
+   Drop-in use (any web app that accepts custom CSS):
+     1. Serve ./fonts/ next to this file (or edit the url()s below).
+     2. Load this file after the app's own CSS.
+     3. Map the app's own variables onto the --vd-* tokens (see README).
+   ========================================================================== */
+
+/* ---- Typefaces (SIL Open Font License, from Google Fonts; latin subset) -- */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url("fonts/bricolage-grotesque.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/instrument-serif.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url("fonts/instrument-serif-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fragment Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/fragment-mono.woff2") format("woff2");
+}
+
+/* ---- Day ("paper") — the default ---------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --vd-ground: #f2f4ee;              /* page background: warm off-white paper */
+  --vd-deep:   #e3e8df;              /* panels, hover wells, inset areas */
+  --vd-ink:    #2d4638;              /* body text, headings, strong rules */
+  --vd-mute:   #516a59;              /* secondary text, labels, link underlines */
+  --vd-accent: #3f5a48;              /* accent text, active states, OK status */
+  --vd-link:   var(--vd-accent);     /* link titles */
+  --vd-rule:   rgba(45, 70, 56, .30); /* hairline borders, dividers */
+  --vd-guide:  rgba(45, 70, 56, .14); /* faint grid lines, row separators */
+  --vd-acid:     #dcff4f;            /* lime highlighter: FILL ONLY in Day */
+  --vd-acid-ink: #1f2f25;            /* text placed on an acid fill */
+  --vd-alert:  #b0452f;              /* Amaro extension: errors / down */
+  --vd-veil:   rgba(45, 70, 56, .45); /* modal/overlay scrim */
+
+  --vd-sans:  "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --vd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --vd-mono:  "Fragment Mono", "SF Mono", Menlo, Consolas, monospace;
+  --vd-radius: 0;                    /* square corners everywhere */
+}
+
+/* ---- Night ("sage") ------------------------------------------------------ */
+:root.vd-night,
+:root[data-vd-theme="night"] {
+  color-scheme: dark;
+
+  --vd-ground: #43604d;              /* page background: sage */
+  --vd-deep:   #2d4638;              /* panels, plates, wells */
+  --vd-ink:    #f2f4ee;              /* body text (the Day ground) */
+  --vd-mute:   #d3e0d6;              /* secondary text */
+  --vd-accent: #dcff4f;              /* lime is readable AS TEXT on sage */
+  --vd-link:   var(--vd-ink);        /* links stay ink; lime is for marks */
+  --vd-rule:   rgba(242, 244, 238, .30);
+  --vd-guide:  rgba(242, 244, 238, .14);
+  --vd-acid:     #dcff4f;
+  --vd-acid-ink: #1f2f25;
+  --vd-alert:  #ffc7b8;              /* Amaro extension: salmon, AA on sage */
+  --vd-veil:   rgba(45, 70, 56, .75);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root.vd-auto {
+    color-scheme: dark;
+    --vd-ground: #43604d;
+    --vd-deep:   #2d4638;
+    --vd-ink:    #f2f4ee;
+    --vd-mute:   #d3e0d6;
+    --vd-accent: #dcff4f;
+    --vd-link:   var(--vd-ink);
+    --vd-rule:   rgba(242, 244, 238, .30);
+    --vd-guide:  rgba(242, 244, 238, .14);
+    --vd-alert:  #ffc7b8;
+    --vd-veil:   rgba(45, 70, 56, .75);
+  }
+}
+
+/* ---- Base rules (optional; skip if the app styles these itself) --------- */
+.vd-base,
+.vd-base body {
+  background: var(--vd-ground);
+  color: var(--vd-ink);
+  font: 400 16px/1.5 var(--vd-sans);
+  font-variant-numeric: tabular-nums;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+}
+.vd-base a {
+  color: var(--vd-link);
+  text-decoration: underline;
+  text-decoration-color: var(--vd-mute);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .16em;
+}
+.vd-base a:hover { text-decoration-color: var(--vd-ink); }
+.vd-base ::selection { background: var(--vd-acid); color: var(--vd-acid-ink); }
+.vd-base h1, .vd-base h2, .vd-base h3 { font-weight: 500; line-height: 1.15; }
+.vd-base h2 { font-size: 26px; font-stretch: 85%; letter-spacing: -.01em; }
+.vd-base code, .vd-base pre, .vd-base .num { font-family: var(--vd-mono); }

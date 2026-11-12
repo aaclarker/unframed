@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unframed · Studio</title>
+  <script>
+    // Initialize theme before render to eliminate flash of light mode
+    (function() {
+      const saved = localStorage.getItem('vd-theme');
+      if (saved === 'night') {
+        document.documentElement.classList.add('vd-night');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/verdant.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="vd-base">
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Masthead & Live TV Status Bar -->
+  <header class="masthead">
+    <div class="masthead-main">
+      <div class="masthead-brand">
+        <h1 class="brand-title">
+          <span class="brand-serif">Unframed</span>
+          <span class="brand-divider">/</span>
+          <span class="brand-sans">Studio</span>
+        </h1>
+        <span class="brand-tagline">Local 4K Art Mode Studio for Samsung The Frame</span>
+      </div>
+
+      <div class="tv-status-badge" id="tvStatusBadge">
+        <span class="status-indicator online" id="tvStatusIndicator"></span>
+        <span class="tv-status-text mono" id="tvStatusText">Connecting to The Frame…</span>
+      </div>
+    </div>
+
+    <div class="masthead-controls">
+      <!-- Art Mode Quick Toggle -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Art Mode</span>
+        <button type="button" class="btn btn-toggle" id="artModeBtn" data-state="unknown">
+          <span class="toggle-indicator"></span>
+          <span class="toggle-text mono" id="artModeText">--</span>
+        </button>
+      </div>
+
+      <!-- Slideshow Controls -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Slideshow</span>
+        <div class="slideshow-inputs">
+          <select id="slideshowSelect" class="form-select mono" title="Slideshow Interval">
+            <option value="off">Off</option>
+            <option value="5m">5 min</option>
+            <option value="15m" selected>15 min</option>
+            <option value="30m">30 min</option>
+            <option value="1h">1 hr</option>
+            <option value="1d">1 day</option>
+          </select>
+          <button type="button" class="btn btn-sm mono" id="slideshowShuffleBtn" title="Toggle Shuffle Mode" data-shuffle="false">
+            🔀 Shuffle: Off
+          </button>
+        </div>
+      </div>
+
+      <!-- General Actions -->
+      <div class="ctrl-group-actions">
+        <button type="button" class="btn btn-icon" id="refreshStatusBtn" title="Refresh TV Status &amp; Gallery">
+          <span class="icon">⟳</span>
+          <span class="btn-text">Sync</span>
+        </button>
+        <button type="button" class="btn btn-theme" id="themeToggleBtn" title="Toggle Verdant Day / Night">
+          <span class="theme-icon" id="themeIcon">☀</span>
+          <span class="theme-label" id="themeLabel">Day</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Studio Workspace -->
+  <main class="studio-layout">
+    <!-- LEFT: 16:9 UHD Cropper & Realistic Matte Simulator -->
+    <section class="studio-pane studio-editor" aria-label="Artwork Studio &amp; Cropper">
+      <div class="pane-header">
+        <div class="pane-title-group">
+          <h2 class="pane-heading">Artwork Studio</h2>
+          <span class="pane-subheading mono">3840 × 2160 UHD · 16:9 Canvas</span>
+        </div>
+        <div class="pane-actions">
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+          <button type="button" class="btn btn-sm" id="chooseFileBtn">
+            <span>↑ Choose Image</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Image Source Bar (Shown when an image is active) -->
+      <div class="image-meta-bar" id="imageMetaBar" style="display: none;">
+        <span class="file-name mono" id="imageFileName">image.jpg</span>
+        <span class="file-dims mono" id="imageNaturalDims">0 × 0 px</span>
+        <button type="button" class="btn-link mono" id="clearImageBtn">[Change / Clear]</button>
+      </div>
+
+      <!-- Interactive Frame Simulator Viewport -->
+      <div class="frame-simulator-container">
+        <!-- Physical Frame Outer Bezel -->
+        <div class="frame-bezel" id="frameBezel">
+          <!-- Realistic Matte Simulator (dynamic padding & color) -->
+          <div class="frame-matte matte-none" id="frameMatte">
+            <!-- 16:9 Art Canvas Viewport -->
+            <div class="art-viewport" id="artViewport">
+              <canvas id="viewportCanvas" width="960" height="540"></canvas>
+              <!-- Rule of Thirds Grid Overlay -->
+              <div class="grid-overlay" id="gridOverlay" style="display: none;">
+                <div class="grid-line grid-v1"></div>
+                <div class="grid-line grid-v2"></div>
+                <div class="grid-line grid-h1"></div>
+                <div class="grid-line grid-h2"></div>
+              </div>
+              <!-- Empty Dropzone State Overlay -->
+              <div class="viewport-dropzone" id="viewportDropzone">
+                <div class="dropzone-card">
+                  <div class="dropzone-icon">⬚</div>
+                  <div class="dropzone-title">Drop 4K Artwork Here</div>
+                  <div class="dropzone-desc">Drag &amp; drop any JPEG, PNG, or WebP image, or click below.</div>
+                  <button type="button" class="btn btn-dropzone" id="dropzoneBrowseBtn">Select File</button>
+                  <div class="dropzone-note mono">Target output: 3840 × 2160 UHD (16:9)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viewport Crop Tools & Controls -->
+      <div class="viewport-controls" id="viewportControls">
+        <div class="control-row">
+          <div class="slider-group">
+            <label for="zoomRange" class="slider-label">Zoom</label>
+            <input type="range" id="zoomRange" min="1.0" max="4.0" step="0.01" value="1.0" class="form-range" disabled>
+            <span class="slider-value mono" id="zoomValue">1.00×</span>
+          </div>
+
+          <div class="button-group">
+            <button type="button" class="btn btn-tool mono" id="rotateBtn" title="Rotate 90° Clockwise" disabled>⟳ 90°</button>
+            <button type="button" class="btn btn-tool mono" id="centerBtn" title="Center Artwork" disabled>Center</button>
+            <button type="button" class="btn btn-tool mono" id="fitBtn" title="Fit to 16:9 bounds" disabled>Fit</button>
+            <button type="button" class="btn btn-tool mono" id="fillBtn" title="Fill 16:9 canvas" disabled>Fill</button>
+            <button type="button" class="btn btn-tool mono" id="gridToggleBtn" title="Toggle Rule of Thirds Grid"># Grid</button>
+            <button type="button" class="btn btn-tool mono" id="resetCropBtn" title="Reset transforms" disabled>Reset</button>
+          </div>
+        </div>
+
+        <!-- Live Crop Dimensions & Target Info Bar -->
+        <div class="crop-meta-row mono">
+          <div class="meta-item">
+            <span class="meta-label">Source Crop:</span>
+            <span class="meta-val" id="sourceCropText">-- × -- px</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Output Target:</span>
+            <span class="meta-val">3840 × 2160 UHD · 16:9</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Effective Scale:</span>
+            <span class="meta-val" id="effectiveScaleText">1.00×</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Matte & Filter Customization Panel -->
+      <div class="matte-config-panel">
+        <div class="config-section">
+          <div class="config-header">
+            <span class="config-title">Matte Style</span>
+            <span class="config-current mono" id="currentMatteTypeLabel">Flexible (~7% Bevel)</span>
+          </div>
+          <div class="matte-type-pills" id="matteTypePills" role="radiogroup" aria-label="Matte Style">
+            <button type="button" class="btn-pill" data-type="none">None (0%)</button>
+            <button type="button" class="btn-pill" data-type="modernthin">Modern Thin (3%)</button>
+            <button type="button" class="btn-pill" data-type="modern">Modern (6%)</button>
+            <button type="button" class="btn-pill" data-type="modernwide">Modern Wide (10%)</button>
+            <button type="button" class="btn-pill active" data-type="flexible">Flexible (7% Bevel)</button>
+            <button type="button" class="btn-pill" data-type="shadowbox">Shadow Box (6% Inset)</button>
+            <button type="button" class="btn-pill" data-type="panoramic">Panoramic (10%/4%)</button>
+          </div>
+        </div>
+
+        <div class="config-section" id="matteColorSection">
+          <div class="config-header">
+            <span class="config-title">Matte Color</span>
+            <span class="config-current mono" id="currentMatteColorLabel">Polar · #f4f5f0</span>
+          </div>
+          <!-- 16 Official Samsung Matte Colors -->
+          <div class="color-swatch-grid" id="colorSwatchGrid" role="radiogroup" aria-label="Matte Color">
+            <!-- Rendered by JS / Accessible buttons -->
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-header">
+            <span class="config-title">Photo Filter</span>
+            <span class="config-current mono" id="currentFilterLabel">None</span>
+          </div>
+          <div class="filter-pills" id="filterPills" role="radiogroup" aria-label="Photo Filter">
+            <button type="button" class="btn-pill active" data-filter="None">None</button>
+            <button type="button" class="btn-pill" data-filter="Aqua">Aqua</button>
+            <button type="button" class="btn-pill" data-filter="ArtDeco">ArtDeco</button>
+            <button type="button" class="btn-pill" data-filter="Ink">Ink</button>
+            <button type="button" class="btn-pill" data-filter="Wash">Wash</button>
+            <button type="button" class="btn-pill" data-filter="Pastel">Pastel</button>
+            <button type="button" class="btn-pill" data-filter="Feuve">Feuve</button>
+          </div>
+        </div>
+
+        <!-- Push to The Frame Action Bar -->
+        <div class="upload-action-box">
+          <div class="upload-options">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="showNowCheckbox" checked>
+              <span class="checkbox-box"></span>
+              <span class="checkbox-label">Display immediately on TV</span>
+            </label>
+            <span class="upload-hint mono">Matte ID: <span id="targetMatteIdText">none</span></span>
+          </div>
+
+          <div class="upload-buttons">
+            <button type="button" class="btn btn-primary" id="pushToTvBtn" disabled>
+              <span class="btn-label">Push to The Frame</span>
+              <span class="btn-arrow">↗</span>
+            </button>
+          </div>
+
+          <!-- Progress / Status Feedback -->
+          <div class="upload-progress-wrap" id="uploadProgressWrap" style="display: none;">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="uploadProgressBar" style="width: 0%;"></div>
+            </div>
+            <div class="progress-text mono" id="uploadProgressText">Processing 3840×2160 UHD canvas...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: "My Collection" (MY-C0002) Live TV Gallery -->
+    <section class="studio-pane studio-gallery" aria-label="My Collection Live TV Gallery">
+      <div class="pane-header">
+        <div class="pane-title-group">
+          <h2 class="pane-heading">My Collection</h2>
+          <span class="pane-subheading mono">MY-C0002 · <span id="galleryCountText">0 items</span></span>
+        </div>
+        <div class="pane-actions">
+          <button type="button" class="btn btn-sm" id="refreshGalleryBtn">
+            <span class="icon">⟳</span> Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Advice Callout -->
+      <div class="callout-box">
+        <div class="callout-text">
+          Select any TV artwork to display it now, or click <strong>Apply Selected Matte</strong> to restyle an existing photo with the matte selected in the studio above without re-uploading.
+        </div>
+      </div>
+
+      <!-- TV Artwork Grid -->
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Rendered dynamically by app.js -->
+        <div class="gallery-empty-state" id="galleryEmptyState">
+          <div class="empty-icon">🖼</div>
+          <div class="empty-title">Loading TV Artwork...</div>
+          <div class="empty-desc mono">Querying /api/status</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-scrim" id="deleteModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="deleteModalTitle">Delete Artwork from TV</h3>
+        <button type="button" class="btn-close" id="closeDeleteModalBtn" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete artwork <strong class="mono" id="deleteContentIdText">MY_F0000</strong> from The Frame's internal storage?</p>
+        <p class="modal-warning">This action cannot be undone on the TV.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancelDeleteBtn">Cancel</button>
+        <button type="button" class="btn btn-destructive" id="confirmDeleteBtn">Delete from TV</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
